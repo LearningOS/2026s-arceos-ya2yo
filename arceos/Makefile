@@ -61,6 +61,7 @@ IP ?= 10.0.2.15
 GW ?= 10.0.2.2
 
 # App type
+# wildcard: Makefile内置的查找函数，返回对应文件的路径
 ifeq ($(wildcard $(APP)),)
   $(error Application path "$(APP)" is not valid)
 endif
@@ -72,22 +73,28 @@ else
 endif
 
 # Architecture and platform
+# 从右边滤出匹配$(MAKECMDGOALS)
 ifneq ($(filter $(MAKECMDGOALS),unittest unittest_no_fail_fast),)
   PLATFORM_NAME :=
 else ifneq ($(PLATFORM),)
   # `PLATFORM` is specified, override the `ARCH` variables
+  # 用于生成干净的文件名，取出%对应的内容
   builtin_platforms := $(patsubst platforms/%.toml,%,$(wildcard platforms/*))
   ifneq ($(filter $(PLATFORM),$(builtin_platforms)),)
     # builtin platform
     PLATFORM_NAME := $(PLATFORM)
+    # subst:字符串替换，$(PLATFORM)里面的-换成 
+    # word: 从列表里滤出第一个单词
     _arch := $(word 1,$(subst -, ,$(PLATFORM)))
   else ifneq ($(wildcard $(PLATFORM)),)
     # custom platform, read the "platform" field from the toml file
+    # shell: 执行后面的命令
     PLATFORM_NAME := $(shell cat $(PLATFORM) | sed -n 's/^platform = "\([a-z0-9A-Z_\-]*\)"/\1/p')
     _arch := $(shell cat $(PLATFORM) | sed -n 's/^arch = "\([a-z0-9A-Z_\-]*\)"/\1/p')
   else
     $(error "PLATFORM" must be one of "$(builtin_platforms)" or a valid path to a toml file)
   endif
+  # origin: 变量的定义方式
   ifeq ($(origin ARCH),command line)
     ifneq ($(ARCH),$(_arch))
       $(error "ARCH=$(ARCH)" is not compatible with "PLATFORM=$(PLATFORM)")
@@ -175,7 +182,7 @@ run: build justrun
 
 justrun:
 	$(call run_qemu)
-
+# 调用自定义的函数rum_qemu
 debug: build
 	$(call run_qemu_debug) &
 	sleep 1
