@@ -1,4 +1,3 @@
-#[cfg(feature = "alloc")]
 pub use alloc::collections::*;
 pub use hashbrown::HashMap;
 use axhal::misc::random;
