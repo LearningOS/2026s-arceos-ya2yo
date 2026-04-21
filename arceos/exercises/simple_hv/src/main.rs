@@ -57,6 +57,7 @@ fn main() {
 }
 
 fn prepare_vm_pgtable(ept_root: PhysAddr) {
+    ax_println!("start prepare_vm_pgtable");
     let hgatp = 8usize << 60 | usize::from(ept_root) >> 12;
     unsafe {
         core::arch::asm!(
@@ -65,6 +66,7 @@ fn prepare_vm_pgtable(ept_root: PhysAddr) {
         );
         core::arch::riscv64::hfence_gvma_all();
     }
+    ax_println!("exit prepare_vm_pgtable");
 }
 
 fn run_guest(ctx: &mut VmCpuRegisters) -> bool {
@@ -78,8 +80,8 @@ fn run_guest(ctx: &mut VmCpuRegisters) -> bool {
 #[allow(unreachable_code)]
 fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
     use scause::{Exception, Trap};
-
     let scause = scause::read();
+    let stval=stval::read();
     match scause.cause() {
         Trap::Exception(Exception::VirtualSupervisorEnvCall) => {
             let sbi_msg = SbiMessage::from_regs(ctx.guest_regs.gprs.a_regs()).ok();
@@ -95,19 +97,33 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
                         ax_println!("Shutdown vm normally!");
                         return true;
                     },
+                    SbiMessage::PutChar(ch)=>{
+                        axhal::console::putchar(ch as u8);
+                        ctx.guest_regs.gprs.set_reg(A0, 0);
+                    },
                     _ => todo!(),
                 }
             } else {
-                panic!("bad sbi message! ");
+                ax_println!("Unknown SBI call!");
+                ctx.guest_regs.gprs.set_reg(A0, -1isize as usize);
             }
+            ctx.guest_regs.sepc+=4;
+            return false;
         },
         Trap::Exception(Exception::IllegalInstruction) => {
-            panic!("Bad instruction: {:#x} sepc: {:#x}",
-                stval::read(),
-                ctx.guest_regs.sepc
-            );
+            if stval==0xf14025f3 {
+                ctx.guest_regs.gprs.set_reg(A1,0x1234);
+                ctx.guest_regs.sepc+=4;
+                return false;
+            }
+            panic!("真正的非法指令: {:#x} at sepc: {:#x}", stval, ctx.guest_regs.sepc);
         },
         Trap::Exception(Exception::LoadGuestPageFault) => {
+            if stval==64 {
+                ctx.guest_regs.gprs.set_reg(A0, 0x6688);
+                ctx.guest_regs.sepc+=4;
+                return false;
+            }
             panic!("LoadGuestPageFault: stval{:#x} sepc: {:#x}",
                 stval::read(),
                 ctx.guest_regs.sepc
@@ -126,6 +142,7 @@ fn vmexit_handler(ctx: &mut VmCpuRegisters) -> bool {
 }
 
 fn prepare_guest_context(ctx: &mut VmCpuRegisters) {
+    ax_println!("start prepare_guest_context");
     // Set hstatus
     let mut hstatus = LocalRegisterCopy::<usize, hstatus::Register>::new(
         riscv::register::hstatus::read().bits(),
@@ -143,4 +160,5 @@ fn prepare_guest_context(ctx: &mut VmCpuRegisters) {
     ctx.guest_regs.sstatus = sstatus.bits();
     // Return to entry to start vm.
     ctx.guest_regs.sepc = VM_ENTRY;
+    ax_println!("end prepare_guest_context");
 }

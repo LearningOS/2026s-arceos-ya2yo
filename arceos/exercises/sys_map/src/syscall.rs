@@ -172,7 +172,6 @@ fn sys_mmap(
         if flags.contains(MmapFlags::MAP_FIXED)&&start_vddr%PAGE_SIZE_4K!=0 {
             return Err(LinuxError::EINVAL);
         }
-
         if !flags.contains(MmapFlags::MAP_FIXED)&&start_vddr==0{
             start_vddr=aspace.find_free_area(0x2000_0000.into(),length,VirtAddrRange::new(0x2000_0000.into(), usize::MAX.into())).unwrap().as_usize();
         }
