@@ -41,12 +41,15 @@ fn process() -> io::Result<()> {
     create_file("/tmp/f1", "hello")?;
     // Just rename, NOT move.
     // So this must happen in the same directory.
+    println!("start rename");
     rename_file("/tmp/f1", "/tmp/f2")?;
+    println!("exit rename");
     print_file("/tmp/f2")
 }
 
 #[cfg_attr(feature = "axstd", no_mangle)]
 fn main() {
+    println!("start ramfs_rename");
     if let Err(e) = process() {
         panic!("Error: {}", e);
     }
