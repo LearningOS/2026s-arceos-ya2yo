@@ -159,7 +159,7 @@ impl VfsNodeOps for DirNode {
                 }
             }
         } else if name.is_empty() || name == "." || name == ".." {
-            Err(VfsError::InvalidInput) // remove '.' or '..
+            Err(VfsError::InvalidInput) // remove '.' or '..'
         } else {
             self.remove_node(name)
         }
